@@ -1,0 +1,22 @@
+[package]
+name = "aoc-controller"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ddc-hi = "0.4" # Main DDC/CI Library -- detects monitors and sends commands
+ddc    = "0.2" # Low-level DDC types (VCP codes, values)
+clap   = { version = "4", features = ["derive"]} # CLI argument parsing
+anyhow = "1"  # Ergonomic error handling
+eframe = "0.27" # GUI eframe is the app shell that runs egui
+egui   = "0.27" # egui is the actual UI Toolkit
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["wincon"] }
+
+[[bin]]
+name = "monitor-ctrl"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
