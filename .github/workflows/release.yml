@@ -3,8 +3,15 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'          
+      - 'v*'
   workflow_dispatch:
+
+# 🔐 Required to create releases
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -24,20 +31,18 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      # 1. Check out the source code
+      # 1. Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Install Rust on the runner machine
+      # 2. Install Rust
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      # 3. Cache compiled dependencies so repeat builds are fast
-      #    Without this, every build recompiles all crates from scratch (~3 min)
-      #    With cache, only changed code recompiles (~30 sec)
-      - name: Cache cargo dependencies
+      # 3. Cache dependencies
+      - name: Cache cargo
         uses: actions/cache@v4
         with:
           path: |
@@ -48,8 +53,7 @@ jobs:
           restore-keys: |
             ${{ matrix.os }}-cargo-
 
-      # 4. Linux only — install the i2c and GUI system libraries
-      #    These are needed to compile ddc-hi and eframe on Ubuntu
+      # 4. Linux dependencies
       - name: Install Linux dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -63,11 +67,11 @@ jobs:
             libssl-dev \
             libgtk-3-dev
 
-      # 5. Build the release binary
-      - name: Build release binary
+      # 5. Build binary
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      # 6. Upload the binary as a build artifact
+      # 6. Upload artifact (already correctly named)
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
@@ -75,12 +79,12 @@ jobs:
           path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
 
   release:
-    needs: build   # wait for the build job to finish
+    needs: build
     runs-on: ubuntu-latest
-    # Only create a release when triggered by a tag push, not manual dispatch
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
+      # Download artifacts
       - name: Download Linux binary
         uses: actions/download-artifact@v4
         with:
@@ -92,12 +96,6 @@ jobs:
         with:
           name: monitor-ctrl-windows-x86_64.exe
           path: artifacts/
-
-      # Rename files cleanly before attaching to release
-      - name: Prepare release files
-        run: |
-          mv artifacts/monitor-ctrl       artifacts/monitor-ctrl-linux-x86_64
-          mv artifacts/monitor-ctrl.exe   artifacts/monitor-ctrl-windows-x86_64.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
